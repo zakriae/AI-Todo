@@ -6,10 +6,13 @@ import { ObjectId } from "mongodb";
 export async function getLabels(userId: string): Promise<Label[]> {
   const client = await clientPromise;
   const db = client.db("ai-todo");
-  const labels = await db.collection("labels").find({ userId: new ObjectId(userId) }).toArray() as unknown as Label[];
-  return labels.map(label => ({
+  const labels = (await db
+    .collection("labels")
+    .find({ userId: new ObjectId(userId) })
+    .toArray()) as unknown as Label[];
+  return labels.map((label) => ({
     ...label,
-    _id: label._id.toString(),
+    _id: label._id.toString(), // Convert ObjectId to string
     userId: label.userId?.toString(), // Convert ObjectId to string
   }));
 }
@@ -29,8 +32,16 @@ export async function addLabel(name: string, userId: string): Promise<string> {
 export async function getLabelById(labelId: string): Promise<Label | null> {
   const client = await clientPromise;
   const db = client.db("ai-todo");
-  const label = await db.collection("labels").findOne({ _id: new ObjectId(labelId) }) as Label | null;
-  return label ? { ...label, _id: label._id.toString(), userId: label.userId?.toString() } : null; // Convert ObjectId to string
+  const label = (await db
+    .collection("labels")
+    .findOne({ _id: new ObjectId(labelId) })) as Label | null;
+  return label
+    ? {
+        ...label,
+        _id: label._id.toString(), // Convert ObjectId to string
+        userId: label.userId?.toString(), // Convert ObjectId to string
+      }
+    : null;
 }
 
 export async function deleteLabel(labelId: string): Promise<void> {

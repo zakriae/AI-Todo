@@ -1,4 +1,4 @@
-"use server"
+"use server";
 import clientPromise from "@/lib/mongodb"; // Your existing MongoDB connection file
 import { ObjectId } from "mongodb";
 import { Project, Todo } from "@/types"; // Import your custom types
@@ -9,7 +9,15 @@ export async function getLabels() {
   return await db.collection("labels").find().toArray();
 }
 
-export async function createTask({ taskName, description, priority, dueDate, projectId, labelId, userId }: any) {
+export async function createTask({
+  taskName,
+  description,
+  priority,
+  dueDate,
+  projectId,
+  labelId,
+  userId,
+}: any) {
   const client = await clientPromise;
   const db = client.db("ai-todo");
 
@@ -31,9 +39,11 @@ export async function createTask({ taskName, description, priority, dueDate, pro
 export async function getLabelById(labelId: string) {
   const client = await clientPromise;
   const db = client.db("ai-todo");
-  const label = await db.collection("labels").findOne({ _id: new ObjectId(labelId) });
+  const label = await db
+    .collection("labels")
+    .findOne({ _id: new ObjectId(labelId) });
   if (label) {
-    label._id = label._id.toString();
+    label.id = label._id.toString();
   }
   return label;
 }
@@ -41,9 +51,12 @@ export async function getLabelById(labelId: string) {
 export async function getCompleteSubTodos(parentId: string) {
   const client = await clientPromise;
   const db = client.db("ai-todo");
-  const subTodos = await db.collection("subTodos").find({ parentId, isCompleted: true }).toArray();
-  return subTodos.map(subTodo => {
-    subTodo._id = subTodo._id.toString();
+  const subTodos = await db
+    .collection("subTodos")
+    .find({ parentId, isCompleted: true })
+    .toArray();
+  return subTodos.map((subTodo) => {
+    subTodo.id = subTodo._id.toString();
     subTodo.parentId = subTodo.parentId.toString();
     return subTodo;
   });

@@ -1,27 +1,25 @@
 import React from "react";
 import Task from "./task";
 import { useToast } from "../ui/use-toast";
-import { checkTodo, uncheckTodo } from "@/actions/todos"; // Import your server actions// Import ObjectId from mongodb
+import { checkTodo, uncheckTodo } from "@/actions/todos"; // Import your server actions
 import { Todo } from "@/types"; // Import your custom type
+import { usePathname } from "next/navigation"; // Import usePathname
 
-export default function Todos({ items }: { items: Todo[] }) {
+export default function Todos({
+  items,
+  handleOnChangeTodo,
+}: {
+  items: Todo[];
+  handleOnChangeTodo: (task: Todo) => void;
+}) {
   const { toast } = useToast();
-
-  const handleOnChangeTodo = async (task: Todo) => {
-      await uncheckTodo(task._id);
-      await checkTodo(task._id);
-      toast({
-        title: "✅ Task completed",
-        description: "You're a rockstar",
-        duration: 3000,
-      });
-  };
+  const pathname = usePathname(); // Get the current path
 
   return items.map((task: Todo, idx: number) => (
     <Task
-      key={task._id.toString()}
+      key={task._id ? task._id.toString() : `task-${idx}`} // Add a fallback key
       data={task}
-      isCompleted={task.completed}
+      isCompleted={task.isCompleted}
       handleOnChange={() => handleOnChangeTodo(task)}
     />
   ));

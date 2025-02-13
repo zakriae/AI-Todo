@@ -6,9 +6,13 @@ import { Todo, Project } from "@/types"; // Import your custom types
 export const AddTaskWrapper = ({
   parentTask,
   projectId,
+  handelOnAddTodo,
+  existingTodoIds,
 }: {
   parentTask?: Todo;
   projectId?: Project["_id"];
+  handelOnAddTodo: (task: Todo) => void;
+  existingTodoIds: string[];
 }) => {
   const [showAddTask, setShowAddTask] = useState(false);
 
@@ -17,6 +21,8 @@ export const AddTaskWrapper = ({
       setShowDialog={setShowAddTask}
       parentTask={parentTask}
       projectId={projectId}
+      handelOnAddTodo={handelOnAddTodo}
+      existingTodoIds={existingTodoIds}
     />
   ) : (
     <AddTaskButton

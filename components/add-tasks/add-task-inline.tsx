@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { v4 as uuidv4 } from "uuid"; // Import uuid for generating unique IDs
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +19,7 @@ import { toast, useToast } from "@/components/ui/use-toast";
 import { CalendarIcon, Text } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { CardFooter } from "../ui/card";
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
@@ -32,8 +33,10 @@ import {
   SelectValue,
 } from "../ui/select";
 import { createTask } from "@/actions/tasks";
-import { Project, Todo } from "@/types"; // Import your custom types
+import { Project, Todo, Label } from "@/types"; // Import your custom types
 import { useSession } from "next-auth/react"; // Import useSession from next-auth
+import { getLabels } from "@/actions/labels"; // Import getLabels action
+import { getProjects } from "@/actions/projects"; // Import getProjects action
 
 const FormSchema = z.object({
   taskName: z.string().min(2, {
@@ -50,13 +53,32 @@ export default function AddTaskInline({
   setShowDialog,
   parentTask,
   projectId: myProjectId,
+  handelOnAddTodo,
+  existingTodoIds, // Add existingTodoIds as a prop
 }: {
   setShowDialog: Dispatch<SetStateAction<boolean>>;
   parentTask?: Todo;
   projectId?: Project["_id"];
+  handelOnAddTodo: (task: Todo) => void;
+  existingTodoIds: string[]; // Add existingTodoIds as a prop
 }) {
   const { data: session } = useSession(); // Get the current session
   const { toast } = useToast();
+  const [labels, setLabels] = useState<Label[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  useEffect(() => {
+    async function fetchData() {
+      if (session?.user?.id) {
+        const labelsData = await getLabels(session.user.id);
+        const projectsData = await getProjects(session.user.id);
+        setLabels(labelsData);
+        setProjects(projectsData);
+      }
+    }
+    fetchData();
+  }, [session?.user?.id]);
+
   const form = useForm({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -69,10 +91,34 @@ export default function AddTaskInline({
     },
   });
 
+  const generateUniqueId = () => {
+    let tempId;
+    do {
+      tempId = uuidv4();
+    } while (existingTodoIds.includes(tempId));
+    return tempId;
+  };
+
   const onSubmit = async (values: any) => {
     try {
       if (session?.user?.id) {
-        await createTask({ ...values, userId: session.user.id });
+        const tempId = generateUniqueId(); // Generate a unique temporary ID
+        const newTask = {
+          ...values,
+          _id: tempId,
+          userId: session.user.id,
+          isCompleted: false,
+        };
+        handelOnAddTodo(newTask); // Optimistically add the task with the temporary ID
+        const addedTask = await createTask({
+          ...values,
+          userId: session.user.id,
+        });
+        // Replace the temporary ID with the real ID
+        handelOnAddTodo({
+          ...newTask,
+          _id: addedTask._id,
+        });
         toast({
           title: "✅ Task added successfully",
           duration: 3000,
@@ -209,9 +255,14 @@ export default function AddTaskInline({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {/* Replace with your labels data */}
-                    <SelectItem value="defaultLabelId">Default Label</SelectItem>
-                    <SelectItem value="label2">Label 2</SelectItem>
+                    {labels.map((label) => (
+                      <SelectItem
+                        key={label._id.toString()}
+                        value={label._id.toString()}
+                      >
+                        {label.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -224,19 +275,21 @@ export default function AddTaskInline({
           name="projectId"
           render={({ field }) => (
             <FormItem>
-              <Select
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-              >
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a Project" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {/* Replace with your projects data */}
-                  <SelectItem value="defaultProjectId">Default Project</SelectItem>
-                  <SelectItem value="project2">Project 2</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem
+                      key={project._id}
+                      value={project._id.toString()}
+                    >
+                      {project.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />
