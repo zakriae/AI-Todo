@@ -1,41 +1,53 @@
 "use client";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { useToast } from "../ui/use-toast";
-import { addLabel } from "@/actions/labels"; // Import your server action
-import { Form, FormControl, FormField, FormItem } from "../ui/form";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "../ui/form";
 import { Loader } from "lucide-react";
 import {
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useSession } from "next-auth/react"; // Import useSession from next-auth
+import { useLabels } from "@/hooks/useLabels";
+
+// Form validation schema
+const formSchema = z.object({
+  name: z.string().min(2, { message: "Label name must be at least 2 characters" }),
+});
 
 export default function AddLabelDialog() {
-  const { data: session } = useSession(); // Get the current session
-  const form = useForm({ defaultValues: { name: "" } });
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  // Use the labels hook that contains our mutation
+  const { addLabel } = useLabels();
+  const [isAdding, setIsAdding] = useState(false);
+  
+  const form = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+    },
+    mode: "onChange"
+  });
 
-  const onSubmit = async ({ name }: any) => {
-    setIsLoading(true);
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsAdding(true);
     try {
-      if (session?.user?.id) {
-        const labelId = await addLabel(name, session.user.id);
-        if (labelId) {
-          toast({
-            title: "😎 Successfully created a Label!",
-            duration: 5000,
-          });
-          form.reset();
-          // Close the dialog
-          document.getElementById("closeDialog")?.click();
-        }
-      }
+      // Use the mutation from our hook
+      addLabel(values.name);
+      
+      toast({
+        title: "😎 Successfully created a Label!",
+        duration: 3000,
+      });
+      
+      form.reset();
+      // Close the dialog
+      document.getElementById("closeDialog")?.click();
     } catch (error) {
       console.error("Error adding label:", error);
       toast({
@@ -44,7 +56,7 @@ export default function AddLabelDialog() {
         duration: 3000,
       });
     } finally {
-      setIsLoading(false);
+      setIsAdding(false);
     }
   };
 
@@ -52,42 +64,46 @@ export default function AddLabelDialog() {
     <DialogContent className="max-w-xl lg:h-56 flex flex-col md:flex-row lg:justify-between text-right">
       <DialogHeader className="w-full">
         <DialogTitle>Add a Label</DialogTitle>
-        <DialogDescription className="capitalize">
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="space-y-2 border-2 p-6 border-gray-200 my-2 rounded-sm border-foreground/20"
+        
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-2 border-2 p-6 border-gray-200 my-2 rounded-sm border-foreground/20"
+          >
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="Label name"
+                      className="border-0 font-semibold text-lg"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button 
+              type="submit"
+              disabled={isAdding || !form.formState.isValid} 
+              className=""
             >
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        id="name"
-                        type="text"
-                        placeholder="Label name"
-                        required
-                        className="border-0 font-semibold text-lg"
-                        {...field}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <Button disabled={isLoading} className="">
-                {isLoading ? (
-                  <div className="flex gap-2">
-                    <Loader className="h-5 w-5 text-primary" />
-                  </div>
-                ) : (
-                  "Add"
-                )}
-              </Button>
-            </form>
-          </Form>
-        </DialogDescription>
+              {isAdding ? (
+                <div className="flex gap-2">
+                  <Loader className="h-5 w-5 text-primary animate-spin" />
+                  <span>Adding...</span>
+                </div>
+              ) : (
+                "Add"
+              )}
+            </Button>
+          </form>
+        </Form>
       </DialogHeader>
     </DialogContent>
   );

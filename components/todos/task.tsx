@@ -5,6 +5,7 @@ import { Dialog, DialogTrigger } from "../ui/dialog";
 import { Calendar, GitBranch } from "lucide-react";
 import moment from "moment";
 import { Todo } from "@/types"; // Import your custom types
+import { useState } from "react";
 
 function isSubTodo(data: Todo): boolean {
   return "parentId" in data;
@@ -12,17 +13,21 @@ function isSubTodo(data: Todo): boolean {
 
 export default function Task({
   data,
-  isCompleted,
+  isCompleted: isCompletedProps,
   handleOnChange,
-  showDetails = false,
+  showDetails,
 }: {
   data: Todo;
   isCompleted: boolean;
   handleOnChange: any;
   showDetails?: boolean;
 }) {
+  const [isCompleted, setIsCompleted] = useState(isCompletedProps);
   const { taskName, dueDate } = data;
-
+  const handleCheck = () => {
+    setIsCompleted(!isCompleted);
+    handleOnChange();
+  };
   return (
     <div
       key={data._id}
@@ -39,7 +44,7 @@ export default function Task({
                   "data-[state=checked]:bg-gray-300 border-gray-300"
               )}
               checked={isCompleted}
-              onCheckedChange={handleOnChange}
+              onCheckedChange={handleCheck}
             />
             <DialogTrigger asChild>
               <div className="flex flex-col items-start">
@@ -74,3 +79,5 @@ export default function Task({
     </div>
   );
 }
+
+

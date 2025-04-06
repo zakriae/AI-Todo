@@ -32,11 +32,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { createTask } from "@/actions/tasks";
+import { useProjects } from "@/hooks/useProjects";
+import { useLabels } from "@/hooks/useLabels";
+import { useTodos } from "@/hooks/useTodos";
 import { Project, Todo, Label } from "@/types"; // Import your custom types
 import { useSession } from "next-auth/react"; // Import useSession from next-auth
-import { getLabels } from "@/actions/labels"; // Import getLabels action
-import { getProjects } from "@/actions/projects"; // Import getProjects action
 
 const FormSchema = z.object({
   taskName: z.string().min(2, {
@@ -53,31 +53,17 @@ export default function AddTaskInline({
   setShowDialog,
   parentTask,
   projectId: myProjectId,
-  handelOnAddTodo,
-  existingTodoIds, // Add existingTodoIds as a prop
+
 }: {
   setShowDialog: Dispatch<SetStateAction<boolean>>;
   parentTask?: Todo;
   projectId?: Project["_id"];
-  handelOnAddTodo: (task: Todo) => void;
-  existingTodoIds: string[]; // Add existingTodoIds as a prop
 }) {
   const { data: session } = useSession(); // Get the current session
   const { toast } = useToast();
-  const [labels, setLabels] = useState<Label[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-
-  useEffect(() => {
-    async function fetchData() {
-      if (session?.user?.id) {
-        const labelsData = await getLabels(session.user.id);
-        const projectsData = await getProjects(session.user.id);
-        setLabels(labelsData);
-        setProjects(projectsData);
-      }
-    }
-    fetchData();
-  }, [session?.user?.id]);
+  const { projects } = useProjects();
+  const { labels } = useLabels();
+  const { addTodo } = useTodos();
 
   const form = useForm({
     resolver: zodResolver(FormSchema),
@@ -85,40 +71,35 @@ export default function AddTaskInline({
       taskName: "",
       description: "",
       dueDate: new Date(),
-      priority: parentTask?.priority?.toString() || "1",
-      projectId: myProjectId || parentTask?.projectId || "defaultProjectId", // Replace with your default project ID
-      labelId: parentTask?.labelId || "defaultLabelId", // Replace with your default label ID
+      priority: parentTask?.priority?.toString() || "",
+      projectId: myProjectId || parentTask?.projectId || "", // Replace with your default project ID
+      labelId: parentTask?.labelId || "", // Replace with your default label ID
     },
+    mode: "onChange",
   });
 
-  const generateUniqueId = () => {
-    let tempId;
-    do {
-      tempId = uuidv4();
-    } while (existingTodoIds.includes(tempId));
-    return tempId;
-  };
+
 
   const onSubmit = async (values: any) => {
     try {
+      const isValid = await form.trigger();
+      if (!isValid) {
+        toast({
+          title: "❌ Please fill in all required fields",
+          variant: "destructive",
+          duration: 3000,
+        });
+        return;
+      }
       if (session?.user?.id) {
-        const tempId = generateUniqueId(); // Generate a unique temporary ID
         const newTask = {
           ...values,
-          _id: tempId,
           userId: session.user.id,
           isCompleted: false,
+          ...(parentTask?._id ? { parentId: parentTask._id } : {})
         };
-        handelOnAddTodo(newTask); // Optimistically add the task with the temporary ID
-        const addedTask = await createTask({
-          ...values,
-          userId: session.user.id,
-        });
-        // Replace the temporary ID with the real ID
-        handelOnAddTodo({
-          ...newTask,
-          _id: addedTask._id,
-        });
+        console.log("New Task:", newTask);
+        await addTodo(newTask);
         toast({
           title: "✅ Task added successfully",
           duration: 3000,
@@ -151,7 +132,7 @@ export default function AddTaskInline({
                   type="text"
                   placeholder="Enter your Task name"
                   required
-                  className="border-0 font-semibold text-lg"
+                  className="border-0 font-semibold text-lg pl-0"
                   {...field}
                 />
               </FormControl>
@@ -169,7 +150,7 @@ export default function AddTaskInline({
                   <Textarea
                     id="description"
                     placeholder="Description"
-                    className="resize-none"
+                    className="resize-none border-none pt-0 pl-0 focus:border-none"
                     {...field}
                   />
                 </div>
@@ -255,7 +236,7 @@ export default function AddTaskInline({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {labels.map((label) => (
+                    {labels?.map((label) => (
                       <SelectItem
                         key={label._id.toString()}
                         value={label._id.toString()}
@@ -282,7 +263,7 @@ export default function AddTaskInline({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {projects.map((project) => (
+                  {projects?.map((project) => (
                     <SelectItem
                       key={project._id}
                       value={project._id.toString()}
@@ -296,7 +277,7 @@ export default function AddTaskInline({
             </FormItem>
           )}
         />
-        <CardFooter className="flex flex-col lg:flex-row lg:justify-between gap-2 border-t-2 pt-3">
+        <CardFooter className="flex flex-col lg:flex-row lg:justify-between gap-2  pt-3">
           <div className="w-full lg:w-1/4"></div>
           <div className="flex gap-3 self-end">
             <Button
@@ -306,8 +287,15 @@ export default function AddTaskInline({
             >
               Cancel
             </Button>
-            <Button className="px-6" type="submit">
-              Add task
+            <Button
+              className={cn(
+                "px-6",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+              type="submit"
+              disabled={!form.formState.isValid}
+            >
+              Add Task
             </Button>
           </div>
         </CardFooter>

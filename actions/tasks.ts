@@ -17,11 +17,11 @@ export async function createTask({
   projectId,
   labelId,
   userId,
+  parentId,
 }: any) {
   const client = await clientPromise;
   const db = client.db("ai-todo");
-
-  const result = await db.collection("todos").insertOne({
+  const taskDocument: any = {
     taskName,
     description,
     priority: parseInt(priority),
@@ -31,7 +31,12 @@ export async function createTask({
     userId: new ObjectId(userId),
     createdAt: new Date(),
     isCompleted: false,
-  });
+  };
+  if (parentId) {
+    taskDocument.parentId = new ObjectId(parentId);
+  }
+  const result = await db.collection("todos").insertOne(taskDocument);
+
 
   return JSON.parse(JSON.stringify(result)); // Convert to plain object
 }

@@ -17,8 +17,33 @@ export async function getTodos(): Promise<Todo[]> {
     _id: todo._id.toString(),
     projectId: todo.projectId?.toString(),
     labelId: todo.labelId?.toString(),
-    userId: todo.userId?.toString(), // Convert ObjectId to string
+    userId: todo.userId?.toString(),
+    parentId: todo.parentId?.toString(), // Convert ObjectId to string
   }));
+}
+
+// ... existing imports and functions ...
+
+export async function updateTodo({todoId,isCompleted} :{todoId: string, isCompleted: boolean} ): Promise<void> {
+  try {
+    const client = await clientPromise;
+    const db = client.db("ai-todo");
+    
+    await db.collection("todos").updateOne(
+      { _id: new ObjectId(todoId) },
+      { 
+        $set: { 
+          isCompleted,
+          updatedAt: new Date()
+        } 
+      }
+    );
+
+    revalidatePath("/"); // Revalidate the current path to update the data
+  } catch (error) {
+    console.error("Failed to update todo:", error);
+    throw error;
+  }
 }
 
 export async function getTodayTodos(): Promise<Todo[]> {
@@ -56,6 +81,7 @@ export async function getOverdueTodos(): Promise<Todo[]> {
   }));
 }
 
+// to delete if not needed
 export async function getCompletedTodos(): Promise<Todo[]> {
   const client = await clientPromise;
   const db = client.db("ai-todo");
@@ -71,7 +97,7 @@ export async function getCompletedTodos(): Promise<Todo[]> {
     userId: todo.userId?.toString(), // Convert ObjectId to string
   }));
 }
-
+// to delete if not needed
 export async function getIncompleteTodos(): Promise<Todo[]> {
   const client = await clientPromise;
   const db = client.db("ai-todo");
@@ -88,12 +114,13 @@ export async function getIncompleteTodos(): Promise<Todo[]> {
   }));
 }
 
+// to delete if not needed
 export async function getTotalTodos(): Promise<number> {
   const client = await clientPromise;
   const db = client.db("ai-todo");
   return await db.collection("todos").countDocuments();
 }
-
+// to delete if not needed
 export async function checkTodo(todoId: string): Promise<void> {
   const client = await clientPromise;
   const db = client.db("ai-todo");
@@ -102,7 +129,7 @@ export async function checkTodo(todoId: string): Promise<void> {
     .updateOne({ _id: new ObjectId(todoId) }, { $set: { isCompleted: true } });
   revalidatePath("/"); // Revalidate the current path to update the data
 }
-
+// to delete if not needed
 export async function uncheckTodo(todoId: string): Promise<void> {
   const client = await clientPromise;
   const db = client.db("ai-todo");

@@ -10,6 +10,7 @@ export interface Todo {
   dueDate?: Date;
   priority?: string;
   userId: ObjectId | string; // Add userId field
+  parentId?: string;
   // Add other fields as necessary
 }
 
@@ -29,6 +30,4 @@ export interface Label {
   createdAt: Date;
 }
 
-export interface SubTodo extends Todo {
-  parentId: ObjectId | string;
-}
+

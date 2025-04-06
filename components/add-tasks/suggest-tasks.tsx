@@ -1,8 +1,12 @@
+// components/add-tasks/suggest-tasks.tsx
+"use client";
+
 import React, { useState } from "react";
 import { Loader } from "lucide-react";
 import { Button } from "../ui/button";
-import { suggestMissingTasks } from "@/actions/tasks"; // Updated import statement for tasks
-import { suggestMissingSubTasks } from "@/actions/subtodos"; // Updated import statement for subtasks
+import { suggestTasksWithAI, suggestSubtasksWithAI } from "@/actions/openai";
+import { useToast } from "../ui/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function SuggestMissingTasks({
   projectId,
@@ -11,46 +15,105 @@ export default function SuggestMissingTasks({
   description = "",
   parentId,
 }: {
-  projectId: string;
+  projectId: string; // Changed from Id<"projects">
   isSubTask?: boolean;
   taskName?: string;
   description?: string;
-  parentId?: string;
+  parentId?: string; // Changed from Id<"todos">
 }) {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingSuggestMissingTasks, setIsLoadingSuggestMissingTasks] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const handleMissingTasks = async () => {
-    setIsLoading(true);
+    setIsLoadingSuggestMissingTasks(true);
     try {
-      await suggestMissingTasks({ projectId });
+      const result = await suggestTasksWithAI({ projectId });
+      
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ['todos'] });
+        toast({
+          title: "✅ Tasks generated successfully",
+          description: `Generated ${result.tasksCount} tasks`,
+          duration: 3000,
+        });
+      } else {
+        toast({
+          title: "❌ Error generating tasks",
+          description: result.error || "Something went wrong",
+          variant: "destructive",
+          duration: 3000,
+        });
+      }
     } catch (error) {
       console.log("Error in suggestMissingTasks", error);
+      toast({
+        title: "❌ Failed to generate tasks",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+        duration: 3000,
+      });
     } finally {
-      setIsLoading(false);
+      setIsLoadingSuggestMissingTasks(false);
     }
   };
 
-  const handleMissingSubTasks = async (): Promise<void> => {
-    setIsLoading(true);
+  const handleMissingSubTasks = async () => {
+    setIsLoadingSuggestMissingTasks(true);
     try {
-      await suggestMissingSubTasks({ parentId: parentId || "", taskName, description });
+      if (parentId) {
+        const result = await suggestSubtasksWithAI({
+          projectId,
+          taskName,
+          description,
+          parentId,
+        });
+        
+        if (result.success) {
+          queryClient.invalidateQueries({ queryKey: ['todos'] });
+          toast({
+            title: "✅ Subtasks generated successfully",
+            description: `Generated ${result.tasksCount} subtasks`,
+            duration: 3000,
+          });
+        } else {
+          toast({
+            title: "❌ Error generating subtasks",
+            description: result.error || "Something went wrong",
+            variant: "destructive",
+            duration: 3000,
+          });
+        }
+      }
     } catch (error) {
       console.log("Error in suggestMissingSubTasks", error);
+      toast({
+        title: "❌ Failed to generate subtasks",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+        duration: 3000,
+      });
     } finally {
-      setIsLoading(false);
+      setIsLoadingSuggestMissingTasks(false);
     }
   };
 
   return (
-    <Button
-      onClick={isSubTask ? handleMissingSubTasks : handleMissingTasks}
-      disabled={isLoading}
-    >
-      {isLoading ? (
-        <Loader className="animate-spin" />
-      ) : (
-        "Suggest Missing Tasks"
-      )}
-    </Button>
+    <>
+      <Button
+        variant={"outline"}
+        disabled={isLoadingSuggestMissingTasks}
+        onClick={isSubTask ? handleMissingSubTasks : handleMissingTasks}
+      >
+        {isLoadingSuggestMissingTasks ? (
+          <div className="flex gap-2">
+            Loading Tasks (AI)
+            <Loader className="h-5 w-5 animate-spin text-primary" />
+          </div>
+        ) : (
+          "Suggest Missing Tasks (AI) 💖"
+        )}
+      </Button>
+    </>
   );
 }

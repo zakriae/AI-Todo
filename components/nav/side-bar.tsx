@@ -17,9 +17,8 @@ import { Hash, PlusIcon } from "lucide-react";
 import { Dialog, DialogTrigger } from "../ui/dialog";
 import AddProjectDialog from "../projects/add-project-dialog";
 import AddLabelDialog from "../labels/add-label-dialog";
-import { getProjects } from "@/actions/projects"; // Import your server action
-import { getLabels } from "@/actions/labels"; // Import your server action
 import { useSession } from "next-auth/react"; // Import useSession from next-auth
+import { useProjects } from "@/hooks/useProjects";
 
 interface MyListTitleType {
   [key: string]: string;
@@ -27,24 +26,10 @@ interface MyListTitleType {
 
 export default function SideBar() {
   const pathname = usePathname();
-  const { data: session } = useSession(); // Get the current session
-
-  const [projectList, setProjectList] = useState<Array<{ _id: string; name: string }>>([]);
-  const [labelList, setLabelList] = useState<Array<{ _id: string; name: string }>>([]);
+  console.log("projects");
+  const { projects } = useProjects(); // Replace manual fetching with useProjects hook
   const [navItems, setNavItems] = useState([...primaryNavItems]);
-
-  useEffect(() => {
-    async function fetchProjectsAndLabels() {
-      if (session?.user?.id) {
-        const projects = await getProjects(session.user.id);
-        const labels = await getLabels(session.user.id);
-        setProjectList(projects);
-        setLabelList(labels);
-      }
-    }
-    fetchProjectsAndLabels();
-  }, [session]);
-
+ 
   const LIST_OF_TITLE_IDS: MyListTitleType = {
     primary: "",
     projects: "My Projects",
@@ -62,13 +47,12 @@ export default function SideBar() {
   };
 
   useEffect(() => {
-    if (projectList.length > 0 || labelList.length > 0) {
-      const projectItems = renderItems(projectList, "projects");
-      const labelItems = renderItems(labelList, "labels");
-      const items = [...primaryNavItems, ...projectItems];
-      setNavItems(items);
+    if (projects?.length > 0) {
+      const projectItems = renderItems(projects, "projects");
+      setNavItems([...primaryNavItems, ...projectItems]);
     }
-  }, [projectList]);
+  }, [projects]);
+
   return (
     <div className="hidden border-r bg-muted/40 md:block">
       <div className="flex h-full max-h-screen flex-col gap-2">

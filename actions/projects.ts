@@ -6,7 +6,13 @@ import { ObjectId } from "mongodb";
 export async function getProjects(userId: string): Promise<Project[]> {
   const client = await clientPromise;
   const db = client.db("ai-todo");
-  const projects = await db.collection("projects").find({ userId: new ObjectId(userId) }).toArray() as unknown as Project[];
+  console.log("you called me mothafacker");
+  // Fetch both user-specific projects and system-wide default projects
+  const projects = await db.collection("projects").find({
+    $or: [{ userId: new ObjectId(userId) }, { system: true }],
+  }).toArray() as unknown as Project[];
+
+  // Convert ObjectId to string
   return projects.map(project => ({
     ...project,
     _id: project._id.toString(),

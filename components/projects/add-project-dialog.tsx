@@ -1,20 +1,27 @@
 "use client";
-import { PlusIcon } from "lucide-react";
+import { useState } from "react";
+import { PlusIcon, Loader } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "../ui/dialog";
-import { Form, FormControl, FormField, FormItem } from "../ui/form";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "../ui/form";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
 import { useToast } from "../ui/use-toast";
-import { addProject } from "@/actions/projects"; // Import your server action
+import { useProjects } from "@/hooks/useProjects"; // Import our custom hook
+
+// Form validation schema
+const formSchema = z.object({
+  name: z.string().min(2, { message: "Project name must be at least 2 characters" }),
+});
 
 export default function AddProjectDialog() {
   return (
@@ -28,27 +35,46 @@ export default function AddProjectDialog() {
 }
 
 function AddProjectDialogContent() {
-  const form = useForm({ defaultValues: { name: "" } });
   const { toast } = useToast();
   const router = useRouter();
+  const [isAdding, setIsAdding] = useState(false);
+  const { addProject } = useProjects();
+  
+  const form = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+    },
+    mode: "onChange"
+  });
 
-  const onSubmit = async ({ name }: any) => {
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsAdding(true);
     try {
-      const projectId = await addProject(name);
-      if (projectId) {
-        toast({
-          title: "🚀 Successfully created a project!",
-          duration: 3000,
-        });
-        form.reset({ name: "" });
-        router.push(`/loggedin/projects/${projectId}`);
-      }
+      // Use the mutation from our hook
+      await addProject(values.name);
+      
+      toast({
+        title: "🚀 Successfully created a project!",
+        duration: 3000,
+      });
+      
+      form.reset();
+      // Close the dialog
+      // document.getElementById("closeDialog")?.click();
+      
+      // Navigate to new project (optional)
+      // Note: You might need to adjust this if your addProject hook doesn't return the ID directly
+      // router.push(`/loggedin/projects/${projectId}`);
     } catch (error) {
+      console.error("Error adding project:", error);
       toast({
         title: "❌ Failed to add project",
         description: (error as Error).message,
         duration: 3000,
       });
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -56,34 +82,47 @@ function AddProjectDialogContent() {
     <DialogContent className="max-w-xl lg:h-56 flex flex-col md:flex-row lg:justify-between text-right">
       <DialogHeader className="w-full">
         <DialogTitle>Add a Project</DialogTitle>
-        <DialogDescription className="capitalize">
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="space-y-2 border-2 p-6 border-gray-200 my-2 rounded-sm border-foreground/20"
+        
+        {/* Form moved outside of DialogDescription to fix nesting issue */}
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-2 border-2 p-6 border-gray-200 my-2 rounded-sm border-foreground/20"
+          >
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="Project name"
+                      className="border-0 font-semibold text-lg"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button 
+              type="submit"
+              disabled={isAdding || !form.formState.isValid} 
+              className=""
             >
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        id="name"
-                        type="text"
-                        placeholder="Project name"
-                        required
-                        className="border-0 font-semibold text-lg"
-                        {...field}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              ></FormField>
-              <Button className="">Add</Button>
-            </form>
-          </Form>
-        </DialogDescription>
+              {isAdding ? (
+                <div className="flex gap-2">
+                  <Loader className="h-5 w-5 text-primary animate-spin" />
+                  <span>Adding...</span>
+                </div>
+              ) : (
+                "Add"
+              )}
+            </Button>
+          </form>
+        </Form>
       </DialogHeader>
     </DialogContent>
   );

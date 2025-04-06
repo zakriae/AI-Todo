@@ -8,9 +8,12 @@ import { usePathname } from "next/navigation"; // Import usePathname
 export default function Todos({
   items,
   handleOnChangeTodo,
+  showDetails= false
 }: {
   items: Todo[];
   handleOnChangeTodo: (task: Todo) => void;
+  showDetails?: boolean;
+
 }) {
   const { toast } = useToast();
   const pathname = usePathname(); // Get the current path
@@ -21,6 +24,8 @@ export default function Todos({
       data={task}
       isCompleted={task.isCompleted}
       handleOnChange={() => handleOnChangeTodo(task)}
+      showDetails={showDetails}
+
     />
   ));
 }

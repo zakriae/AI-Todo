@@ -1,76 +1,88 @@
-import { useEffect, useState } from "react";
+"use client";
+import { useMemo } from "react";
 import {
-  Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
-import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Calendar, ChevronDown, Flag, Hash, Tag, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import Task from "../todos/task";
 import { AddTaskWrapper } from "./add-task-button";
-import SuggestMissingTasks from "./suggest-tasks";
 import { useToast } from "../ui/use-toast";
-import { getProjectById } from "@/actions/projects"; // Import your server actions
-import { getLabelById } from "@/actions/labels"; // Import your server actions
-import {
-  getIncompleteSubTodos,
-  getCompleteSubTodos,
-  checkSubTodo,
-  uncheckSubTodo,
-} from "@/actions/subtodos"; // Import your server actions
-import { deleteTodo } from "@/actions/todos"; // Import your server actions
-import { usePathname } from "next/navigation"; // Import usePathname
+import { useLabels } from "@/hooks/useLabels";
+import { useProjects } from "@/hooks/useProjects";
+import { useTodos } from "@/hooks/useTodos";
+import { Todo } from "@/types";
+import SuggestMissingTasks from "./suggest-tasks";
 
-export default function AddTaskDialog({ data }: { data: any }) {
-  const { taskName, description, projectId, labelId, priority, dueDate, _id } =
-    data;
-  const [project, setProject] = useState<any>(null);
-  const [label, setLabel] = useState<any>(null);
-  const [inCompletedSubtodosByProject, setInCompletedSubtodosByProject] =
-    useState<any[]>([]);
-  const [completedSubtodosByProject, setCompletedSubtodosByProject] = useState<
-    any[]
-  >([]);
+export default function AddTaskDialog({ data }: { data: Todo }) {
+  const { taskName, description, projectId, labelId, priority, dueDate, _id } = data;
   const { toast } = useToast();
-  const pathname = usePathname(); // Get the current path
 
-  useEffect(() => {
-    async function fetchData() {
-      const projectData = await getProjectById(projectId);
-      const labelData = await getLabelById(labelId);
-      setProject(projectData);
-      setLabel(labelData);
+  // Use custom hooks
+  const { labels } = useLabels();
+  const { projects } = useProjects();
+  const { todos, deleteTodo, updateTodo } = useTodos();
 
-      if (_id) {
-        const incompleteSubTodos = await getIncompleteSubTodos(_id);
-        const completeSubTodos = await getCompleteSubTodos(_id);
-        setInCompletedSubtodosByProject(incompleteSubTodos);
-        setCompletedSubtodosByProject(completeSubTodos);
-      }
-    }
-    fetchData();
-  }, [projectId, labelId, _id]);
+  // Find project and label from custom hooks (using useMemo to prevent infinite loops)
+  const project = useMemo(() => 
+    projects?.find(p => p._id === projectId),
+  [projects, projectId]);
+  
+  const label = useMemo(() => 
+    labels?.find(l => l._id === labelId),
+  [labels, labelId]);
 
-  const handleCheckSubTodo = async (todoId: string) => {
-    await checkSubTodo(todoId);
+  // Filter subtasks from todos (using useMemo for performance)
+  const subtodos = useMemo(() => 
+    todos.filter(todo => todo.parentId === _id),
+  [todos, _id]);
+  
+  const incompletedSubtodos = useMemo(() => 
+    subtodos.filter(todo => !todo.isCompleted),
+  [subtodos]);
+  
+  const completedSubtodos = useMemo(() => 
+    subtodos.filter(todo => todo.isCompleted),
+  [subtodos]);
+
+  // Replace useState + useEffect with useMemo to prevent infinite loop
+  const todoDetails = useMemo(() => [
+    {
+      labelName: "Project",
+      value: project?.name || "",
+      icon: <Hash className="w-4 h-4 text-primary capitalize" />,
+    },
+    {
+      labelName: "Due date",
+      value: dueDate ? format(new Date(dueDate), "MMM dd yyyy") : "",
+      icon: <Calendar className="w-4 h-4 text-primary capitalize" />,
+    },
+    {
+      labelName: "Priority",
+      value: priority?.toString() || "",
+      icon: <Flag className="w-4 h-4 text-primary capitalize" />,
+    },
+    {
+      labelName: "Label",
+      value: label?.name || "",
+      icon: <Tag className="w-4 h-4 text-primary capitalize" />,
+    },
+  ], [project?.name, dueDate, priority, label?.name]);
+
+  // Handle checking/unchecking subtasks
+  const handleCheckSubTodo = (todo: Todo) => {
+    updateTodo({ todoId: todo._id, isCompleted: !todo.isCompleted });
     toast({
-      title: "✅ Subtask completed",
+      title: todo.isCompleted ? "❌ Subtask unchecked" : "✅ Subtask completed",
       duration: 3000,
     });
   };
 
-  const handleUncheckSubTodo = async (todoId: string) => {
-    await uncheckSubTodo(todoId);
-    toast({
-      title: "❌ Subtask unchecked",
-      duration: 3000,
-    });
-  };
-
+  // Handle deleting the main task
   const handleDeleteTodo = async (e: React.FormEvent) => {
     e.preventDefault();
     await deleteTodo(_id);
@@ -78,61 +90,60 @@ export default function AddTaskDialog({ data }: { data: any }) {
       title: "🗑️ Task deleted",
       duration: 3000,
     });
+    // Close the dialog after deletion
+    document.getElementById("closeDialog")?.click();
   };
 
-  const [todoDetails, setTodoDetails] = useState<
-    Array<{ labelName: string; value: string; icon: React.ReactNode }>
-  >([]);
-
-  useEffect(() => {
-    setTodoDetails([
-      {
-        labelName: "Project",
-        value: project?.name || "",
-        icon: <Hash className="w-5 h-5" />,
-      },
-      {
-        labelName: "Label",
-        value: label?.name || "",
-        icon: <Tag className="w-5 h-5" />,
-      },
-      {
-        labelName: "Priority",
-        value: priority,
-        icon: <Flag className="w-5 h-5" />,
-      },
-      {
-        labelName: "Due Date",
-        value: dueDate ? format(new Date(dueDate), "PPP") : "",
-        icon: <Calendar className="w-5 h-5" />,
-      },
-    ]);
-  }, [project, label, priority, dueDate]);
-
   return (
-    <DialogContent>
-      <DialogHeader>
+    <DialogContent className="max-w-4xl lg:h-4/6 flex flex-col md:flex-row lg:justify-between text-right">
+      <DialogHeader className="w-full">
         <DialogTitle>{taskName}</DialogTitle>
-        <DialogDescription>
-          <p>{description}</p>
-          <div className="flex flex-col gap-2 mt-4">
-            <AddTaskWrapper
-              parentTask={data}
-              handelOnAddTodo={() => {}}
-              existingTodoIds={[]}
-            />
-            {completedSubtodosByProject.map((task) => (
-              <Task
-                key={task._id}
-                data={task}
-                isCompleted={task.completed}
-                handleOnChange={() => handleUncheckSubTodo(task._id)}
-              />
-            ))}
+        <DialogDescription asChild>
+          <div>
+            <p className="my-2 capitalize">{description}</p>
+            <div className="flex items-center gap-1 mt-12 border-b-2 border-gray-100 pb-2 flex-wrap sm:justify-between lg:gap-0 ">
+              <div className="flex gap-1 justify-between w-full">
+                <div className="flex items-center gap-1">
+                  <ChevronDown className="w-5 h-5 text-primary" />
+                  <p className="font-bold flex text-sm text-gray-900">Sub-tasks</p>
+                </div>
+               
+                <SuggestMissingTasks projectId={projectId} isSubTask={true} taskName={taskName} description={description} parentId={_id}/>
+              </div>
+            </div>
+            <div className="pl-4">
+              {/* Incomplete subtasks */}
+              {incompletedSubtodos.map((task) => (
+                <Task
+                  key={task._id}
+                  data={task}
+                  isCompleted={task.isCompleted}
+                  handleOnChange={() => handleCheckSubTodo(task)}
+                />
+              ))}
+              
+              {/* Add subtask component */}
+              <div className="pb-4">
+                <AddTaskWrapper
+                  parentTask={data}                />
+              </div>
+              
+              {/* Completed subtasks */}
+              {completedSubtodos.map((task) => (
+                <Task
+                  key={task._id}
+                  data={task}
+                  isCompleted={task.isCompleted}
+                  handleOnChange={() => handleCheckSubTodo(task)}
+                />
+              ))}
+            </div>
           </div>
         </DialogDescription>
       </DialogHeader>
-      <div className="flex flex-col gap-2 bg-gray-100 lg:w-1/2">
+      
+      {/* Right sidebar for task details */}
+      <div className="flex flex-col gap-2 bg-gray-100 md:w-1/2">
         {todoDetails.map(({ labelName, value, icon }, idx) => (
           <div
             key={`${value}-${idx}`}
@@ -155,4 +166,4 @@ export default function AddTaskDialog({ data }: { data: any }) {
       </div>
     </DialogContent>
   );
-}
+} 
