@@ -22,7 +22,7 @@ export default function LoginForm() {
             />
           
           </Link>
-          <div className="hidden z-1 lg:flex w-fit items-center">
+          <div className="hidden z-[1] lg:flex w-fit items-center">
             <form action={signInAction}>
               <GoogleSignInButton />
             </form>
@@ -55,7 +55,7 @@ always one step ahead.
               <span className="font-bold px-1">predicts what&apos;s next</span>
               using AI.
             </h2>
-            <div className="mt-12 flex flex-col gap-4">
+            <div className="mt-12  flex flex-col gap-4">
               <form action={signInAction}>
                 <GetStartedButton />
               </form>
