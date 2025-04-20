@@ -1,23 +1,42 @@
 "use server";
 import clientPromise from "@/lib/mongodb";
-import { Project, Todo } from "@/types"; // Import your custom types
+import { Project, Todo } from "@/types";
 import { ObjectId } from "mongodb";
 
 export async function getProjects(userId: string): Promise<Project[]> {
-  const client = await clientPromise;
-  const db = client.db("ai-todo");
-  console.log("you called me mothafacker");
-  // Fetch both user-specific projects and system-wide default projects
-  const projects = await db.collection("projects").find({
-    $or: [{ userId: new ObjectId(userId) }, { system: true }],
-  }).toArray() as unknown as Project[];
-
-  // Convert ObjectId to string
-  return projects.map(project => ({
-    ...project,
-    _id: project._id.toString(),
-    userId: project.userId?.toString(), // Convert ObjectId to string
-  }));
+  if (!userId) {
+    console.error("getProjects called without userId");
+    return []; // Return empty array instead of throwing
+  }
+  
+  try {
+    const client = await clientPromise;
+    const db = client.db("ai-todo");
+    
+    // Build query to fetch both user-specific AND system projects
+    const query = {
+      $or: [
+        { userId: new ObjectId(userId) }, 
+        { system: true }         // Projects marked as system
+      ]
+    };
+    
+    // Fetch projects with proper query
+    const projects = await db.collection("projects")
+      .find(query)
+      .sort({ createdAt: -1 }) // Sort by creation date
+      .toArray() as unknown as Project[];
+    
+    // Convert ObjectId to string
+    return projects.map(project => ({
+      ...project,
+      _id: project._id.toString(),
+      userId: project.userId?.toString(),
+    }));
+  } catch (error) {
+    console.error("Error fetching projects:", error);
+    return []; // Return empty array on error rather than crashing
+  }
 }
 
 export async function getProjectById(projectId: string): Promise<Project | null> {

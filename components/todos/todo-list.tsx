@@ -42,7 +42,7 @@ export default function TodoList() {
       <div className="flex flex-col gap-1 py-4">
         <Todos items={completedTodos} handleOnChangeTodo={handleOnChangeTodo} />
       </div>
-      <CompletedTodos totalTodos={totalTodos} />
+      <CompletedTodos totalTodos={completedTodos.length} />
     </div>
   );
 }

@@ -5,24 +5,35 @@ import { ObjectId } from "mongodb";
 import moment from "moment";
 import { revalidatePath } from "next/cache"; // Import revalidatePath
 
-export async function getTodos(): Promise<Todo[]> {
-  const client = await clientPromise;
-  const db = client.db("ai-todo");
-  const todos = (await db
-    .collection("todos")
-    .find()
-    .toArray()) as unknown as Todo[];
-  return todos.map((todo) => ({
-    ...todo,
-    _id: todo._id.toString(),
-    projectId: todo.projectId?.toString(),
-    labelId: todo.labelId?.toString(),
-    userId: todo.userId?.toString(),
-    parentId: todo.parentId?.toString(), // Convert ObjectId to string
-  }));
-}
+export async function getTodos(userId: string): Promise<Todo[]> {
+  if (!userId) {
+    console.error("getTodos called without userId");
+    return []; // Return empty array instead of throwing error
+  }
 
-// ... existing imports and functions ...
+  try {
+    const client = await clientPromise;
+    const db = client.db("ai-todo");
+
+    // Add proper userId filter to ensure data isolation
+    const todos = await db.collection("todos")
+      .find({ userId: new ObjectId(userId) })
+      .toArray() as unknown as Todo[];
+
+    // Keep existing transformation code
+    return todos.map((todo) => ({
+      ...todo,
+      _id: todo._id.toString(),
+      projectId: todo.projectId?.toString(),
+      labelId: todo.labelId?.toString(),
+      userId: todo.userId?.toString(),
+      parentId: todo.parentId?.toString(),
+    }));
+  } catch (error) {
+    console.error("Error fetching todos:", error);
+    return []; // Handle errors gracefully
+  }
+}
 
 export async function updateTodo({todoId,isCompleted} :{todoId: string, isCompleted: boolean} ): Promise<void> {
   try {
