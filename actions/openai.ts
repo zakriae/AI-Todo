@@ -109,7 +109,7 @@ export async function suggestTasksWithAI({ projectId }: { projectId: string }): 
         priority: task.priority || "medium",
         projectId: project._id.toString(),
         isCompleted: false,
-        userId: project.userId.toString(),
+        userId: project.userId instanceof ObjectId ? project.userId.toString() : project.userId,
         labelId: aiLabelId,
         createdAt: new Date()
       });
@@ -218,7 +218,7 @@ export async function suggestSubtasksWithAI({
         projectId: projectId,
         parentId: parentId,
         isCompleted: false,
-        userId: parentTask.userId.toString(),
+        userId: parentTask.userId instanceof ObjectId ? parentTask.userId.toString() : parentTask.userId,
         labelId: aiLabelId,
         createdAt: new Date()
       });
